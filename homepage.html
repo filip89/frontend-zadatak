@@ -1,0 +1,330 @@
+<html>
+	<head>
+		<meta charset="UTF-8"></meta>
+		<meta name="viewvport" content="width=device-width, initial-scale=1"></meta>
+		<!-- <link rel="icon" href="favicons/favicon.ico" type="image/ico"/> -->
+		<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+		<script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+		<link rel="stylesheet" type="text/css" href="homepage.css">
+	</head>
+	<body>
+
+		<div id="filter">
+			<table>
+				<tr>
+					<td>BROADCAST LANGUAGE ENGLISH</td><td><input id="broadcastLang" onclick="filterChanged()" type="checkbox"/></td>
+				</tr>
+				<tr>
+					<td>STREAM LANGUAGE ENGLISH</td><td><input id="streamLang" onclick="filterChanged()" type="checkbox"/><span></span></td>
+				</tr>
+			</table>
+		</div>
+		<div  id="main">
+			<div style="float:left" id="filterToggle"  class="closed"><span class="glyphicon glyphicon-triangle-bottom" id="filterToggleSpan"></span></div>
+			<div style="float:right" id="gameListToggle" class="closed"><span class="glyphicon glyphicon-menu-hamburger" id="gameListToggleSpan"></span></div>
+			<div class="pageTitle"><span style="color:white">TWITCH</span><div class="glyphWrap"><span class="glyphicon glyphicon-play"></span></div>TV</div>
+			<div class="videoPopUp">
+				<div class="pageTitleVideo"><span style="color:white">TWITCH</span><div class="glyphWrapVideo"><span class="glyphicon glyphicon-play"></span></div>TV</div>
+				<div class="videoDiv">
+					<div id='videoClose' onclick="closeVideo()">x</div>
+					<iframe height="360" width="640" frameborder="0" scrolling="no"	allowfullscreen="true"></iframe>
+				</div>
+			</div>
+			<div id="gameContainers">
+			</div>
+			<div id="loadMore" onclick="loadMore()">
+				<div>LOAD MORE</div>
+			</div>
+		</div>
+		<div id="gameList">
+			<div>
+				
+			</div>
+		</div>
+	</body>
+<script>
+//vodi računa koliko puta je kliknuto #loadMore, povećava se za 1 svaki put
+var listStage = 1;
+ //vodi računa koliko streamova maximalno treba prikazati, povećava se za 9 klikom na #loadMore
+var listAmount = 0;
+//Postavke o jezicima; na početku nema označenog checkboxa te su prikazani streamovi na svim jezicima
+var broadcastEng = false; 
+var streamEng = false;
+var selectedGame = "all";
+//varijabla koja govori da je ovo prvi upload streamova, kasnije postane false
+var firstTime = true;
+
+reloadStreams();
+	
+// Klikanjem na #filterToggle on zatvara/otvara $filter s obzirom jel #filter zatvoren/otvoren
+$("#filterToggle").click(function(){
+	if ($(this).hasClass("closed")){
+		var fToggle = $(this);
+	// Prikazivanje #filter div-a
+		$("#filter").css("left", "0px");
+	// .darken se koristi za zatamnjenje centralnog #main div-a
+		$("<div class='darken'></div>").hide().appendTo("#main").fadeIn(200);
+		$("#main").css("left","250px");
+	// FADE efekt za promjenu #filterToggle u zatvori
+		$(".glyphicon-triangle-bottom").fadeOut("fast", function(){
+			$(this).remove();
+			$(fToggle).append("<span class='glyphicon glyphicon-remove' id='filterToggleSpan'></span>").fadeIn("fast");
+		});
+		$(this).removeClass("closed").addClass("opened");
+	}
+	else {
+		var fToggle = $(this);
+	// Zatvaranje #filter div-a
+		$("#filter").css("left", '-250px');
+		$(".darken").fadeOut(200, function(){
+			$(this).remove();
+		});
+		$("#main").css("left", '0px');
+		
+	// FADE efekt za promjenu #filterToggle u otvori
+		$(".glyphicon-remove").fadeOut("fast", function(){
+			$(this).remove();
+			$(fToggle).append("<span class='glyphicon glyphicon-triangle-bottom' id='filterToggleSpan'></span>").fadeIn("fast");
+		});
+		$(this).removeClass("opened").addClass("closed");
+	}
+});	
+
+// Klikanjem na #gameListToggle on zatvara/otvara izbornik s popisom igara s obzirom jel izbornik zatvoren/otvoren
+$("#gameListToggle").click(function(){
+// Prikazivanje #gameList div-a
+	if ($(this).hasClass("closed")){
+		var glToggle = $(this);
+		$("#gameList").css("right", "0px");
+		$("<div class='darken'></div>").hide().appendTo("#main").fadeIn(200);
+		$("#main").css("left", '-250px');
+	// FADE efekt za promjenu #gameListToggle u zatvori
+		$(".glyphicon-menu-hamburger").fadeOut("fast", function(){
+			$(this).remove();
+			$(glToggle).append("<span class='glyphicon glyphicon-remove' id='filterToggleSpan'></span>").fadeIn("fast");
+		});
+		$(this).removeClass("closed").addClass("opened");
+	}
+	else {
+	// Zatvaranje #gameList div-a
+		var glToggle = $(this);
+		$("#gameList").css("right", "-250px");
+		$(".darken").fadeOut(200, function(){
+			$(this).remove();
+		});
+		$("#main").css("left", '0px');
+	// FADE efekt za promjenu #gameListToggle u otvori
+		$(".glyphicon-remove").fadeOut("fast", function(){
+			$(this).remove();
+			$(glToggle).append("<span class='glyphicon glyphicon-menu-hamburger' id='filterToggleSpan'></span>").fadeIn("fast");
+		});
+		$(this).removeClass("opened").addClass("closed");
+	}
+});
+function reloadStreams(){
+	//Uključivanje loadera na #loadMore
+	$("#loadMore").addClass("loader");
+	//Postavljanje max broja streamova ovisno o tome koliko je kliknuto "load more"
+	listAmount = listStage * 9;
+	
+	//Brisanje svih streamova i povlačenje novih.
+	//Preskače se koliko je prvo učitavanje
+	if(firstTime) {
+		firstTime = false;
+	}
+	else {
+		$(".gameContainer").fadeOut().remove();
+	}
+	
+	//Povlačenje streamova
+	$.getJSON("https://api.twitch.tv/kraken/streams", function(result){
+		
+		var streamsNum = result["streams"].length;
+		
+		
+		/*Staranje arraya za popis svih igara na način da se u array samo jednom ubaci svaka igra.
+		Ispisivanje igara iz arraya u izbornik za igre - #gameList.
+		Popis igara se može promijeniti pri ponovnom traženju podataka od API-ja tako da se svaki put
+		ponovo lista prazni i puni.*/
+		var games = [];
+		$("#gameList > div").empty();
+		$("#gameList > div").append('<div class="selectedGame">ALL</div>');
+		for(var i = 0; i < streamsNum; i++) {
+			if (games.indexOf(result["streams"][i].game) == -1){
+				games.push(result["streams"][i].game);
+				var gameT = result["streams"][i].game;
+				//Ne ide na popis ukoliko nema naziv
+				if(gameT == null){
+					continue;
+				}
+				$("#gameList > div").append("<div class='selectedGame'>" + gameT.toUpperCase() + "</div>");
+			}			
+		}
+		
+		//analiza svih streamova i ubacivanje u array one koji ispunjavaju uvjete
+		var streamArray = [];
+		for(var i = 0; i < streamsNum; i++){
+			
+			var gameTitle = result["streams"][i].game;
+			
+			//Stavio sam da ne stavlja stream ako nema naziv jer mi se dogodilo jednom
+			if(gameTitle == null){
+			gameTitle = "Unknown";
+			}
+			else {
+				gameTitle = gameTitle.toUpperCase();
+			}
+			
+			//Selekcija streamova koji ispunjavaju uvjete jezika i odabrane igre
+			//Uvjet za igru
+			var sg = selectedGame.toLowerCase();
+			if(gameTitle != selectedGame && selectedGame != "all"){
+				continue;
+			}
+	
+			var language = result["streams"][i].channel.language;
+			var broadcastLanguage = result["streams"][i].channel.broadcaster_language;
+			//uvjeti za jezik					
+			if(streamEng == true && language != "en"){
+				continue;	
+			}
+			if(broadcastEng == true && broadcastLanguage != "en"){
+				continue;
+			}
+					
+			var channelViews = result["streams"][i].channel.views;
+			var profileBanner = result["streams"][i].channel.profile_banner;
+			var preview = result["streams"][i].preview.medium;
+			var channelName = result["streams"][i].channel.name;
+			var logo = result["streams"][i].channel.logo;
+		
+			//Pretvaranje datuma u potreban format
+			var dateJSON = result["streams"][i].channel.updated_at;
+			var date = new Date(dateJSON);
+			var months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+			var month = date.getMonth();
+			var day = date.getDate();
+			var year = date.getFullYear();
+			var channelUpdateDate = months[month] + " " + day + ", " + year;
+		
+			//Stavljanje u array svih streamova koji ispunjavaju uvjete kako bi ih pomoću listAmount mogao izlistat maximalan broj po set-u
+			streamArray.push({
+				"channelName": channelName,
+				"logo": logo,
+				"game": gameTitle,
+				"preview": preview,
+				"views": channelViews,
+				"broadcastLang": broadcastLanguage,
+				"streamLang": language,
+				"updateDate": channelUpdateDate,
+				"banner": profileBanner
+			});
+		}
+		
+		//Zaustavljanje loadera
+		$("#loadMore").removeClass("loader");
+		for(var i = 0; i < listAmount; i++){			
+			var channelViews = streamArray[i].views;
+			var preview = streamArray[i].preview;
+			var channelName = streamArray[i].channelName;
+			var logo = streamArray[i].logo;
+			var language = streamArray[i].streamLang;
+			var broadcastLanguage = streamArray[i].broadcastLang;
+			var channelUpdateDate = streamArray[i].updateDate;
+			var profileBanner = streamArray[i].banner;
+			
+			//Samo plava pozadina ako nema profile banner.
+			if(profileBanner == null){
+			profileBanner = "";
+			}
+			
+			var gameTitle = streamArray[i].game;
+			gameTitle = gameTitle.toUpperCase();
+			// CONTAINER za svaki channel
+			$("<div class='gameContainer' onclick='funk(this)'>" +
+						"<div class='gameDiv1'>" +
+								"<img class='banner' src='" + profileBanner + "'></img>" +
+								"<div><img class='logo' src='" + logo + "'></img><span class='channelName'>" + channelName + "</span></div>" +
+						"</div>" +
+						"<div class='gameDiv2'>" +
+								"<img class='gameImage' src='" + preview + "'></img>" +
+						"</div>" +
+						"<div class='gameDiv3'>" +
+							"<div>" +
+								"<div class='gameTitle'>" + gameTitle + "</div>" +
+								"<span class='glyphicon glyphicon-eye-open'></span>" +
+								"<span class='channelViews'>" + channelViews + "</span>" +
+								"<span class='updateDate'>" + channelUpdateDate + "</span>" +
+								"<span class='broadcastLanguage'>" + broadcastLanguage + "</span>" +
+								"<span class='language'>" + language + "</span>" +
+							"</div>" +
+						"</div>" +
+					"</div>").hide().appendTo("#gameContainers").fadeIn("slow");
+		}
+		
+	});
+	
+}
+
+//funkcija koja se pokreće prilikom odabira igre
+$("body").on("click", ".selectedGame", function(){
+	selectedGame = $(this).text();
+	if(selectedGame == "ALL"){
+		selectedGame = "all";
+	}
+	reloadStreams();
+});
+
+//funkcija koja se pokreće prilikom odabira "load more"
+//listStage vodi računa koliko streamova max treba prikazati - 9, 18, 27...
+function loadMore() {
+
+	listStage++;
+	reloadStreams();
+}
+
+/*funkcija koja se pokreće prilikom odabira igre
+function gameSelected(gameParam){
+	selectedGame = $(gameParam).text() || "all";
+	
+}*/
+
+//funkcija koja se pokreće prilikom promjene filtera
+function filterChanged(){
+	if(document.getElementById("broadcastLang").checked == true){
+			broadcastEng = true;
+		}
+	else {
+			broadcastEng = false;
+		}
+	if(document.getElementById("streamLang").checked == true){
+			streamEng = true;
+		}
+	else {
+			streamEng = false;
+		}
+	reloadStreams();
+}
+
+
+//Dodaj src attribute iframe-u i prikaži stream
+function funk(x){
+	$("<div class='darken2'></div>").hide().appendTo("#main").fadeIn(800);
+	var channelName = $(x).find(".channelName").text();
+	$(".videoPopUp").fadeIn(800);
+	var src = "http://player.twitch.tv/?channel=" + channelName;
+	$("iframe").attr("src", src);
+}
+
+
+//Funkcija za zatvaranje videa
+function closeVideo(){
+	$(".videoPopUp").fadeOut(400);
+	$("iframe").attr("src", "");
+	$(".darken2").fadeOut(400, function(){
+				$(this).remove();
+				});
+}
+</script>
+</html>
